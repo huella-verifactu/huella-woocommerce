@@ -22,5 +22,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately as de
 
 ## Licence
 
-Copyright 2026 Samuil Petrov. Licensed under the
+Copyright 2026 Samuil Vinitsiy Petrov. Licensed under the
 [GNU General Public License v2.0 or later](LICENSE).

@@ -1,0 +1,21 @@
+/vendor/
+/node_modules/
+/build/
+*.zip
+.phpunit.result.cache
+.phpunit.cache/
+.wp-env.override.json
+.env
+
+# Certificates and keys must never be committed
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Secrets and local data (SPEC 11.4)
+.env.*
+secrets/
+*.sqlite
+*.sqlite3
+recordings/

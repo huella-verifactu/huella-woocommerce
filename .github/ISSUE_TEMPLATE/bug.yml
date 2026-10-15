@@ -1,0 +1,28 @@
+name: Bug report
+description: Something produces a wrong result or fails.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security problem?** Do not file it here. Use the Security tab → *Report a vulnerability* (see SECURITY.md).
+        Never paste real certificates, keys or taxpayer data. Use the AEAT example NIF `89890001K`.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "plugin 1.0.0, WP 6.x, WC 9.x, PHP 8.3"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Code or input that shows the problem.
+      render: php

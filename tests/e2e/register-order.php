@@ -14,6 +14,10 @@
 
 defined( 'ABSPATH' ) || exit;
 
+use Huella\Verifactu\Admin\Checks;
+use Huella\Verifactu\Admin\Connection;
+use Huella\Verifactu\Admin\SettingsPage;
+use Huella\Verifactu\Checkout\NifField;
 use Huella\Verifactu\Woo\ActionSchedulerJobs;
 use Huella\Verifactu\Woo\Meta;
 use Huella\Verifactu\Woo\Options;
@@ -149,5 +153,46 @@ $pending = as_get_scheduled_actions(
 	'ids'
 );
 $check( 1 === count( $pending ), 'saving or rendering a retrying invoice adds no second job' );
+
+// --- 3. Customer NIF and the settings side ------------------------------------------------------
+$with_nif = $new_order( $product );
+$with_nif->set_billing_company( 'ACME SL' );
+$with_nif->update_meta_data( NifField::CLASSIC_META, 'b-1234567.4' ); // As the classic checkout stores it.
+$with_nif->save();
+wcpdf_get_document( 'invoice', $with_nif, true );
+$run_jobs();
+$requests = get_option( 'huella_fake_api_requests', array() );
+$sent     = end( $requests );
+$check(
+	'F1' === $sent['body']['type'] && array( 'name' => 'ACME SL', 'nif' => 'B12345674' ) === $sent['body']['recipient'],
+	'a NIF from the classic checkout makes a full invoice (F1) with the recipient'
+);
+
+$block_order = $new_order( $product );
+$block_order->update_meta_data( NifField::BLOCK_META, 'B12345674' ); // As the block checkout stores it.
+$block_order->save();
+$check( 'B12345674' === Options::tax_id( wc_get_order( $block_order->get_id() ) ), 'a NIF from the block checkout is read too' );
+
+$check( isset( apply_filters( 'woocommerce_billing_fields', array() )[ NifField::CLASSIC_KEY ] ), 'the classic checkout shows the NIF field' );
+$block_fields = Automattic\WooCommerce\Blocks\Package::container()->get( Automattic\WooCommerce\Blocks\Domain\Services\CheckoutFields::class );
+$check( isset( $block_fields->get_additional_fields()[ NifField::BLOCK_ID ] ), 'the block checkout has the NIF field' );
+
+Connection::forget();
+$status = Connection::status();
+$check( true === $status['ok'] && 'Tienda Fake' === $status['account'] && 'test' === $status['environment'], 'the connection panel reads the account and the environment' );
+$check( 1 === count( Connection::issuers() ) && 'B12345674' === Connection::issuers()[0]['nif'], 'the issuer list comes from the API' );
+Options::remember_issuer_limit( Connection::issuers() );
+$check( '400.00' === Options::get( 'simplified_limit' ), 'the chosen issuer limit is kept' );
+$check( in_array( true, array_map( static function ( $w ) { return false !== strpos( $w, 'redondea el IVA por línea' ); }, Checks::warnings() ), true ), 'per-line tax rounding is warned about' );
+
+// --- 4. The settings page renders in WooCommerce ----------------------------------------------
+require_once WC_ABSPATH . 'includes/admin/class-wc-admin-settings.php';
+require_once WC_ABSPATH . 'includes/admin/settings/class-wc-settings-page.php';
+wp_set_current_user( 1 );
+ob_start();
+( new SettingsPage() )->output();
+$html = (string) ob_get_clean();
+$check( false !== strpos( $html, 'PRUEBAS' ) && false !== strpos( $html, 'Tienda Fake' ), 'the settings page shows the PRUEBAS badge and the account' );
+$check( false !== strpos( $html, Options::OPTION . '[api_key]' ) && false !== strpos( $html, 'TIENDA FAKE SL' ), 'the settings page has the key field and the issuer list' );
 
 WP_CLI::success( 'end-to-end checks passed' );

@@ -14,6 +14,7 @@ namespace Huella\Verifactu\Woo;
 
 use Huella\Verifactu\Api\ApiClient;
 use Huella\Verifactu\Api\WpHttp;
+use Huella\Verifactu\Checkout\NifField;
 use Huella\Verifactu\Invoice\MapperSettings;
 use InvalidArgumentException;
 use WC_Order;
@@ -85,10 +86,36 @@ final class Options {
 	}
 
 	/**
+	 * Whether the plugin adds its own NIF field at checkout (default) or reads an existing one.
+	 */
+	public static function adds_nif_field(): bool {
+		return 'meta' !== self::get( 'nif_mode', 'field' );
+	}
+
+	/**
 	 * The customer's NIF or EU VAT number as stored on the order ("" when none).
 	 */
 	public static function tax_id( WC_Order $order ): string {
+		if ( self::adds_nif_field() ) {
+			return NifField::value( $order );
+		}
 		$value = $order->get_meta( self::get( 'tax_id_meta_key', self::DEFAULT_TAX_ID_META_KEY ) );
-		return is_string( $value ) ? $value : '';
+		return is_string( $value ) ? trim( $value ) : '';
+	}
+
+	/**
+	 * Keep the chosen issuer's simplified-invoice limit next to its ID (SPEC 6.4, read-only).
+	 *
+	 * @param list<array{id: string, nif: string, legal_name: string, simplified_limit: string}> $issuers From the API.
+	 */
+	public static function remember_issuer_limit( array $issuers ): void {
+		$values = self::all();
+		foreach ( $issuers as $issuer ) {
+			if ( $issuer['id'] === ( $values['issuer_id'] ?? '' ) ) {
+				$values['simplified_limit'] = $issuer['simplified_limit'];
+				update_option( self::OPTION, $values );
+				return;
+			}
+		}
 	}
 }

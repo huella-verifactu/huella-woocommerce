@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Huella\Verifactu;
 
+use Huella\Verifactu\Admin\Notices;
+use Huella\Verifactu\Admin\SettingsPage;
+use Huella\Verifactu\Checkout\NifField;
 use Huella\Verifactu\Integration\Wcpdf;
 use Huella\Verifactu\Sending\Sender;
 use Huella\Verifactu\Sending\Status;
@@ -58,6 +61,19 @@ final class Plugin {
 			}
 		);
 		( new Wcpdf( $jobs ) )->register();
+		if ( Options::adds_nif_field() ) {
+			NifField::register();
+		}
+		if ( is_admin() ) {
+			Notices::register();
+			add_filter(
+				'woocommerce_get_settings_pages',
+				static function ( $pages ) {
+					$pages[] = new SettingsPage();
+					return $pages;
+				}
+			);
+		}
 	}
 
 	/**

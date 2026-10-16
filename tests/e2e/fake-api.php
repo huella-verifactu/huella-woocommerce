@@ -45,6 +45,22 @@ add_filter(
 
 		$json = array( 'code' => 'not_found', 'title' => 'Not found' );
 		$code = 404;
+		if ( 'GET' === $method && '/v1/me' === $path ) {
+			$code = 200;
+			$json = array(
+				'account' => array( 'id' => 'acc_1', 'name' => 'Tienda Fake', 'plan' => 'trial', 'live_enabled' => false ),
+				'key'     => array( 'prefix' => 'hk_test_eeee', 'environment' => 'test', 'issuer_ids' => null ),
+			);
+		}
+		if ( 'GET' === $method && '/v1/issuers' === $path ) {
+			$code = 200;
+			$json = array(
+				'object' => 'list',
+				'data'   => array(
+					array( 'id' => 'iss_' . str_repeat( '0', 32 ), 'nif' => 'B12345674', 'legal_name' => 'TIENDA FAKE SL', 'simplified_limit' => '400.00' ),
+				),
+			);
+		}
 		if ( 'POST' === $method && '/v1/invoices' === $path && is_array( $body ) ) {
 			$code = 201;
 			$json = array(

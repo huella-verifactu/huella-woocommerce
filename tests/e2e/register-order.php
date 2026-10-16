@@ -12,6 +12,8 @@
 
 // No strict_types: wp eval-file runs this through eval().
 
+defined( 'ABSPATH' ) || exit;
+
 use Huella\Verifactu\Woo\ActionSchedulerJobs;
 use Huella\Verifactu\Woo\Meta;
 use Huella\Verifactu\Woo\Options;
@@ -127,11 +129,25 @@ $check( count( get_option( 'huella_fake_api_requests', array() ) ) === count( $r
 // --- 2. No answer: retried later ---------------------------------------------------------------
 update_option( 'huella_fake_api_fail_next', 503 );
 $second = $new_order( $product );
-wcpdf_get_document( 'invoice', $second, true );
+$second_invoice = wcpdf_get_document( 'invoice', $second, true );
 $run_jobs();
 $second = wc_get_order( $second->get_id() );
 $check( 'retrying' === $second->get_meta( Meta::STATUS ) && '1' === (string) $second->get_meta( Meta::FAILURES ), 'a 503 leaves the order retrying with 1 failure' );
 $next = as_next_scheduled_action( ActionSchedulerJobs::SEND, array( $second->get_id() ), ActionSchedulerJobs::GROUP );
 $check( is_int( $next ) && $next > time() + 30, 'the retry is scheduled about a minute later' );
+
+// Saving or showing the invoice of a retrying order must not start a second chain of tries.
+$second_invoice->save();
+do_action( 'wpo_wcpdf_before_document', 'invoice', $second );
+$pending = as_get_scheduled_actions(
+	array(
+		'hook'   => ActionSchedulerJobs::SEND,
+		'args'   => array( $second->get_id() ),
+		'group'  => ActionSchedulerJobs::GROUP,
+		'status' => ActionScheduler_Store::STATUS_PENDING,
+	),
+	'ids'
+);
+$check( 1 === count( $pending ), 'saving or rendering a retrying invoice adds no second job' );
 
 WP_CLI::success( 'end-to-end checks passed' );

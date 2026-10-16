@@ -10,6 +10,8 @@
 
 declare(strict_types=1);
 
+defined( 'ABSPATH' ) || exit;
+
 add_filter(
 	'pre_http_request',
 	static function ( $preempt, $args, $url ) {

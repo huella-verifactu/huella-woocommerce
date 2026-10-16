@@ -157,6 +157,53 @@ final class SenderTest extends TestCase {
 		self::assertSame( array(), $this->scheduler->later );
 	}
 
+	public function test_an_answer_without_a_record_id_is_not_a_registration(): void {
+		$this->http->answer( 201, array( 'status' => 'queued' ) );
+		$order = self::order();
+		$this->sender()->send( $order );
+		self::assertNull( $order->record_id );
+		self::assertSame( array( Status::ERROR, 'unexpected_answer' ), array( $order->status, $order->code ) );
+	}
+
+	public function test_only_expected_fields_are_kept(): void {
+		$this->http->answer(
+			201,
+			array(
+				'id'          => 'rec_0123abcd',
+				'status'      => '<script>',
+				'environment' => 'prod',
+				'huella'      => 'not a hash',
+				'qr_url'      => 'https://evil.example/ValidarQR',
+				'extra'       => 'ignored',
+			)
+		);
+		$order = self::order();
+		$this->sender()->send( $order );
+		self::assertSame(
+			array(
+				'id'          => 'rec_0123abcd',
+				'status'      => 'queued',
+				'environment' => 'test',
+				'huella'      => '',
+				'qr_url'      => '',
+			),
+			$order->record
+		);
+	}
+
+	public function test_long_error_text_is_bounded(): void {
+		$this->http->answer(
+			422,
+			array(
+				'code'  => 'validation_error',
+				'title' => str_repeat( 'x', 2000 ),
+			)
+		);
+		$order = self::order();
+		$this->sender()->send( $order );
+		self::assertSame( 500, strlen( (string) $order->message ) );
+	}
+
 	public function test_retry_schedule(): void {
 		$delays = array();
 		for ( $failures = 0; $failures <= 54; $failures++ ) {

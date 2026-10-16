@@ -11,6 +11,7 @@ namespace Huella\Verifactu;
 
 use Huella\Verifactu\Integration\Wcpdf;
 use Huella\Verifactu\Sending\Sender;
+use Huella\Verifactu\Sending\Status;
 use Huella\Verifactu\Woo\ActionSchedulerJobs;
 use Huella\Verifactu\Woo\Options;
 use Huella\Verifactu\Woo\WcHuellaOrder;
@@ -67,8 +68,13 @@ final class Plugin {
 		if ( ! $order instanceof WC_Order ) {
 			return;
 		}
-		$sender = new Sender( Options::api(), Options::mapper_settings(), $jobs );
-		$sender->send( new WcHuellaOrder( $order, Options::tax_id( $order ) ) );
+		$huella_order = new WcHuellaOrder( $order, Options::tax_id( $order ) );
+		try {
+			( new Sender( Options::api(), Options::mapper_settings(), $jobs ) )->send( $huella_order );
+		} catch ( \Throwable $error ) {
+			wc_get_logger()->error( "Huella: order {$order_id}: " . $error->getMessage(), array( 'source' => 'huella-verifactu' ) );
+			$huella_order->not_registered( Status::ERROR, 'internal_error', 'Unexpected error in the plugin; see WooCommerce → Estado → Registros (huella-verifactu)', $huella_order->failures() );
+		}
 	}
 
 	/**

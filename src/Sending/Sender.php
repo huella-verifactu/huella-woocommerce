@@ -26,6 +26,9 @@ use Huella\Verifactu\Invoice\Unsupported;
 
 final class Sender {
 
+	public const RECORD_STATUSES = array( 'queued', 'sending', 'accepted', 'accepted_with_errors', 'rejected' );
+	private const MESSAGE_MAX    = 500;
+
 	/** @var ApiClient|null Null when no API key is configured. */
 	private $api;
 	/** @var MapperSettings|null Null when no issuer is chosen. */
@@ -61,7 +64,7 @@ final class Sender {
 			return;
 		}
 		try {
-			$record = $this->api->create_invoice( $mapped->payload );
+			$record = self::checked( $this->api->create_invoice( $mapped->payload ) );
 		} catch ( ApiError $error ) {
 			$this->failed( $order, $error );
 			return;
@@ -69,11 +72,39 @@ final class Sender {
 		$order->registered( $record, $snapshot, $mapped->notes );
 	}
 
+	/**
+	 * The record, keeping only fields in the shape we expect. An answer without a record ID is
+	 * not a registration: it would make the order look unregistered and be sent again.
+	 *
+	 * @param array<string, mixed> $record Decoded API answer.
+	 * @return array<string, string>
+	 * @throws ApiError When the answer is not a record.
+	 */
+	private static function checked( array $record ): array {
+		$id = $record['id'] ?? null;
+		if ( ! is_string( $id ) || ! preg_match( '/^rec_[A-Za-z0-9]{1,64}$/', $id ) ) {
+			throw new ApiError( 200, 'unexpected_answer', 'Huella Cloud answered without a record ID' );
+		}
+		$text   = static function ( string $key ) use ( $record ): string {
+			return is_string( $record[ $key ] ?? null ) ? $record[ $key ] : '';
+		};
+		$qr_url = $text( 'qr_url' );
+		$hosts  = '#^https://(prewww2\.aeat\.es|www2\.agenciatributaria\.gob\.es)/#';
+		return array(
+			'id'          => $id,
+			'status'      => in_array( $text( 'status' ), self::RECORD_STATUSES, true ) ? $text( 'status' ) : 'queued',
+			'environment' => 'live' === $text( 'environment' ) ? 'live' : 'test',
+			'huella'      => preg_match( '/^[0-9A-F]{64}$/', $text( 'huella' ) ) ? $text( 'huella' ) : '',
+			'qr_url'      => preg_match( $hosts, $qr_url ) ? $qr_url : '',
+		);
+	}
+
 	private function failed( HuellaOrder $order, ApiError $error ): void {
 		$message = $error->getMessage();
-		foreach ( $error->errors as $field_error ) {
+		foreach ( array_slice( $error->errors, 0, 5 ) as $field_error ) {
 			$message .= " ({$field_error['field']}: {$field_error['message']})";
 		}
+		$message = function_exists( 'mb_substr' ) ? mb_substr( $message, 0, self::MESSAGE_MAX ) : substr( $message, 0, self::MESSAGE_MAX );
 		if ( ! $error->is_retryable() ) {
 			$order->not_registered( Status::ERROR, $error->error_code, $message, $order->failures() );
 			return;

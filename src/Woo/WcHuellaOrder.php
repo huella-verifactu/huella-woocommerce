@@ -69,14 +69,15 @@ final class WcHuellaOrder implements HuellaOrder {
 			)
 		);
 		foreach ( $notes as $note ) {
-			$this->order->add_order_note( 'Verifactu: ' . $note );
+			$this->order->add_order_note( 'Verifactu: ' . sanitize_text_field( $note ) );
 		}
 	}
 
 	public function not_registered( string $status, string $code, string $message, int $failures ): void {
 		$previous = $this->order->get_meta( Meta::STATUS );
 		$this->order->update_meta_data( Meta::STATUS, $status );
-		$this->order->update_meta_data( Meta::LAST_ERROR, "{$code}: {$message}" );
+		$message = sanitize_text_field( $message );
+		$this->order->update_meta_data( Meta::LAST_ERROR, sanitize_key( $code ) . ': ' . $message );
 		$this->order->update_meta_data( Meta::FAILURES, (string) $failures );
 		$this->order->save();
 		// One note when the state changes, not one per hourly retry.

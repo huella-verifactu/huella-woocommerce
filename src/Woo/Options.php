@@ -58,6 +58,9 @@ final class Options {
 	 * The client, or null while no valid key is set.
 	 */
 	public static function api(): ?ApiClient {
+		if ( 0 !== strpos( self::api_url(), 'https://' ) && 'local' !== wp_get_environment_type() ) {
+			return null; // An http:// URL would send the API key in clear text.
+		}
 		try {
 			return new ApiClient( new WpHttp(), self::api_key(), self::api_url() );
 		} catch ( InvalidArgumentException $not_a_key ) {

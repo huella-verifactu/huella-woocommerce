@@ -44,11 +44,15 @@ final class Wcpdf {
 		if ( ! $order instanceof WC_Order || ! method_exists( $document, 'get_type' ) || 'invoice' !== $document->get_type() ) {
 			return;
 		}
-		if ( '' !== (string) $order->get_meta( Meta::RECORD_ID ) ) {
-			$this->check_unchanged( $order );
-			return;
-		}
-		$this->queue( $order );
+		self::guarded(
+			function () use ( $order ): void {
+				if ( '' !== (string) $order->get_meta( Meta::RECORD_ID ) ) {
+					$this->check_unchanged( $order );
+					return;
+				}
+				$this->queue( $order );
+			}
+		);
 	}
 
 	/**
@@ -56,20 +60,41 @@ final class Wcpdf {
 	 * @param mixed $order The order.
 	 */
 	public function rendering( $type, $order ): void {
-		if ( 'invoice' === $type && $order instanceof WC_Order && '' === (string) $order->get_meta( Meta::STATUS ) ) {
-			$this->queue( $order );
+		if ( 'invoice' === $type && $order instanceof WC_Order ) {
+			self::guarded(
+				function () use ( $order ): void {
+					$this->queue( $order );
+				}
+			);
 		}
 	}
 
+	/**
+	 * Queue a first send. Only for a new or pending invoice: a retrying order already has its
+	 * next try scheduled, and an error or unsupported one waits for a person ("Reintentar").
+	 */
 	private function queue( WC_Order $order ): void {
-		if ( null === OrderReader::invoice( $order ) ) {
-			return; // Saved without a number (e.g. deleted): nothing to register.
+		$status = (string) $order->get_meta( Meta::STATUS );
+		if ( ( '' !== $status && Status::PENDING !== $status ) || null === OrderReader::invoice( $order ) ) {
+			return;
 		}
-		if ( '' === (string) $order->get_meta( Meta::STATUS ) ) {
+		if ( '' === $status ) {
 			$order->update_meta_data( Meta::STATUS, Status::PENDING );
 			$order->save_meta_data();
 		}
 		$this->scheduler->send_soon( $order->get_id() );
+	}
+
+	/**
+	 * These hooks may run inside checkout or a customer's PDF download: nothing we do may
+	 * break that request. A failure is logged; the render-time safety net tries again.
+	 */
+	private static function guarded( callable $work ): void {
+		try {
+			$work();
+		} catch ( \Throwable $error ) {
+			wc_get_logger()->error( 'Huella: could not queue the invoice registration: ' . $error->getMessage(), array( 'source' => 'huella-verifactu' ) );
+		}
 	}
 
 	private function check_unchanged( WC_Order $order ): void {

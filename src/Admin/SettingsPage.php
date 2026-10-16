@@ -128,6 +128,6 @@ final class SettingsPage extends \WC_Settings_Page {
 	public function save() {
 		parent::save();
 		Connection::forget();
-		Options::remember_issuer_limit( Connection::issuers() );
+		Options::remember_issuer( Connection::issuers() );
 	}
 }

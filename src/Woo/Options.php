@@ -104,15 +104,17 @@ final class Options {
 	}
 
 	/**
-	 * Keep the chosen issuer's simplified-invoice limit next to its ID (SPEC 6.4, read-only).
+	 * Keep the chosen issuer's NIF (for the QR) and simplified-invoice limit next to its ID
+	 * (SPEC 6.4, 6.7), so rendering a PDF never has to call the API.
 	 *
 	 * @param list<array{id: string, nif: string, legal_name: string, simplified_limit: string}> $issuers From the API.
 	 */
-	public static function remember_issuer_limit( array $issuers ): void {
+	public static function remember_issuer( array $issuers ): void {
 		$values = self::all();
 		foreach ( $issuers as $issuer ) {
 			if ( $issuer['id'] === ( $values['issuer_id'] ?? '' ) ) {
 				$values['simplified_limit'] = $issuer['simplified_limit'];
+				$values['issuer_nif']       = $issuer['nif'];
 				update_option( self::OPTION, $values );
 				return;
 			}

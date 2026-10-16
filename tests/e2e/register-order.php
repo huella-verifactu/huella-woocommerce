@@ -38,6 +38,7 @@ update_option( 'woocommerce_tax_based_on', 'base' );
 // WP Overnight stores its defaults on the first admin page load, which a CLI-only site never
 // makes: enable the invoice as a shop would.
 update_option( 'wpo_wcpdf_documents_settings_invoice', array( 'enabled' => '1' ) );
+WPO_WCPDF()->main->init_tmp(); // Its temp and font folders, also made on the first admin visit.
 if ( ! WC_Tax::find_rates( array( 'country' => 'ES', 'tax_class' => '' ) ) ) {
 	WC_Tax::_insert_tax_rate(
 		array(
@@ -181,7 +182,7 @@ Connection::forget();
 $status = Connection::status();
 $check( true === $status['ok'] && 'Tienda Fake' === $status['account'] && 'test' === $status['environment'], 'the connection panel reads the account and the environment' );
 $check( 1 === count( Connection::issuers() ) && 'B12345674' === Connection::issuers()[0]['nif'], 'the issuer list comes from the API' );
-Options::remember_issuer_limit( Connection::issuers() );
+Options::remember_issuer( Connection::issuers() );
 $check( '400.00' === Options::get( 'simplified_limit' ), 'the chosen issuer limit is kept' );
 $check( in_array( true, array_map( static function ( $w ) { return false !== strpos( $w, 'redondea el IVA por línea' ); }, Checks::warnings() ), true ), 'per-line tax rounding is warned about' );
 
@@ -194,5 +195,16 @@ ob_start();
 $html = (string) ob_get_clean();
 $check( false !== strpos( $html, 'PRUEBAS' ) && false !== strpos( $html, 'Tienda Fake' ), 'the settings page shows the PRUEBAS badge and the account' );
 $check( false !== strpos( $html, Options::OPTION . '[api_key]' ) && false !== strpos( $html, 'TIENDA FAKE SL' ), 'the settings page has the key field and the issuer list' );
+
+// --- 5. The QR in the invoice (SPEC 6.7) --------------------------------------------------------
+$qr_order   = $new_order( $product );
+$qr_invoice = wcpdf_get_document( 'invoice', $qr_order, true );
+$html       = (string) $qr_invoice->get_html();
+$check( false !== strpos( $html, 'QR tributario:' ) && false !== strpos( $html, 'VERI*FACTU' ), 'the invoice shows the QR legends' );
+$check( false !== strpos( $html, 'src="data:image/png;base64,' ), 'the QR is an embedded PNG' );
+$expected_url = Huella\Verifactu\Qr::url( 'B12345674', $qr_invoice->get_number()->get_formatted(), $qr_invoice->get_date()->date( 'Y-m-d' ), '100.00', 'test' );
+$check( false !== strpos( Huella\Verifactu\Integration\QrBlock::html( wc_get_order( $qr_order->get_id() ) ), 'mm;' ) && 0 === strpos( $expected_url, 'https://prewww2.aeat.es/' ), 'the QR encodes the pre-production URL of this invoice' );
+$pdf = (string) $qr_invoice->get_pdf();
+$check( 0 === strpos( $pdf, '%PDF' ) && strlen( $pdf ) > 5000, 'Dompdf renders the invoice with the QR into a PDF' );
 
 WP_CLI::success( 'end-to-end checks passed' );

@@ -25,5 +25,6 @@ define( 'HUELLA_VERIFACTU_VERSION', '0.1.0' );
 define( 'HUELLA_VERIFACTU_FILE', __FILE__ );
 
 require __DIR__ . '/autoload.php';
+require __DIR__ . '/vendor-prefixed/autoload.php'; // chillerlan/php-qrcode, namespaced by Strauss.
 
 \Huella\Verifactu\Plugin::boot( __FILE__ );

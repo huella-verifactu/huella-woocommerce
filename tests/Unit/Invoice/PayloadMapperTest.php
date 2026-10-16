@@ -226,6 +226,20 @@ final class PayloadMapperTest extends TestCase {
 			),
 			'13.10',
 		);
+		yield 'two rates with the same percent (OrderReader suffix)' => array(
+			'multiple_tax_rates',
+			array(
+				new OrderLine(
+					'Pack',
+					'10.00',
+					array(
+						'21'   => '2.10',
+						'21#7' => '2.10',
+					)
+				),
+			),
+			'14.20',
+		);
 		yield 'IGIC 7 %' => array( 'unsupported_rate', array( self::product( '10.00', '0.70', '7' ) ), '10.70' );
 		yield 'recargo de equivalencia 5.2 %' => array( 'unsupported_rate', array( self::product( '10.00', '0.52', '5.2' ) ), '10.52' );
 		yield 'only free lines' => array( 'nothing_taxable', array( new OrderLine( 'Regalo', '0.00', array() ) ), '0.00' );

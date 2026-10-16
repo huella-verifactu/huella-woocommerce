@@ -9,5 +9,10 @@ parameters:
         - autoload.php
         - src
         - tests
+    excludePaths:
+        - tests/stubs
+        - tests/e2e # WP-CLI scripts: the e2e CI job runs and checks them
     bootstrapFiles:
         - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
+        - tests/stubs/wpo-ips.php

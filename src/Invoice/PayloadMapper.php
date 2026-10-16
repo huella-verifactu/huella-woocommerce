@@ -122,11 +122,12 @@ final class PayloadMapper {
 		$groups = array();
 		foreach ( $lines as $line ) {
 			$net   = Money::to_micros( $line->net );
-			$taxes = array();
+			$taxes = array(); // One [percent text, micros] per tax actually charged.
 			foreach ( $line->taxes as $percent => $amount ) {
 				$micros = Money::to_micros( $amount );
 				if ( 0 !== $micros ) {
-					$taxes[ Money::text( (string) $percent ) ] = $micros;
+					// A key may carry a "#rate_id" suffix: two rates with one percent (OrderReader).
+					$taxes[] = array( Money::text( (string) strtok( (string) $percent, '#' ) ), $micros );
 				}
 			}
 			if ( 0 === $net && ! $taxes ) {
@@ -138,7 +139,7 @@ final class PayloadMapper {
 			if ( count( $taxes ) > 1 ) {
 				throw new Unsupported( 'multiple_tax_rates', "'{$line->label}' has more than one tax rate" );
 			}
-			$rate = (string) array_key_first( $taxes );
+			list( $rate, $tax ) = $taxes[0];
 			if ( ! in_array( $rate, self::SUPPORTED_RATES, true ) ) {
 				throw new Unsupported( 'unsupported_rate', "'{$line->label}' uses a {$rate} % tax: only 21, 10 and 4 % IVA are supported" );
 			}
@@ -146,7 +147,7 @@ final class PayloadMapper {
 				$groups[ $rate ] = array( 0, 0 );
 			}
 			$groups[ $rate ][0] += $net;
-			$groups[ $rate ][1] += $taxes[ $rate ];
+			$groups[ $rate ][1] += $tax;
 		}
 		if ( ! $groups ) {
 			throw new Unsupported( 'nothing_taxable', 'The order has no taxed line to register' );

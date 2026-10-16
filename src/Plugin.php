@@ -9,6 +9,14 @@ declare(strict_types=1);
 
 namespace Huella\Verifactu;
 
+use Huella\Verifactu\Integration\Wcpdf;
+use Huella\Verifactu\Sending\Sender;
+use Huella\Verifactu\Sending\Status;
+use Huella\Verifactu\Woo\ActionSchedulerJobs;
+use Huella\Verifactu\Woo\Options;
+use Huella\Verifactu\Woo\WcHuellaOrder;
+use WC_Order;
+
 final class Plugin {
 
 	/**
@@ -42,7 +50,31 @@ final class Plugin {
 			);
 			return;
 		}
-		// Features (settings, sending, QR, admin) are registered here in the next steps.
+		$jobs = new ActionSchedulerJobs();
+		add_action(
+			ActionSchedulerJobs::SEND,
+			static function ( $order_id ) use ( $jobs ): void {
+				self::send( (int) $order_id, $jobs );
+			}
+		);
+		( new Wcpdf( $jobs ) )->register();
+	}
+
+	/**
+	 * The background job: register one order's invoice (SPEC 6.6).
+	 */
+	public static function send( int $order_id, ActionSchedulerJobs $jobs ): void {
+		$order = wc_get_order( $order_id );
+		if ( ! $order instanceof WC_Order ) {
+			return;
+		}
+		$huella_order = new WcHuellaOrder( $order, Options::tax_id( $order ) );
+		try {
+			( new Sender( Options::api(), Options::mapper_settings(), $jobs ) )->send( $huella_order );
+		} catch ( \Throwable $error ) {
+			wc_get_logger()->error( "Huella: order {$order_id}: " . $error->getMessage(), array( 'source' => 'huella-verifactu' ) );
+			$huella_order->not_registered( Status::ERROR, 'internal_error', 'Unexpected error in the plugin; see WooCommerce → Estado → Registros (huella-verifactu)', $huella_order->failures() );
+		}
 	}
 
 	/**

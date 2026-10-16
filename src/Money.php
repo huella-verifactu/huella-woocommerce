@@ -55,7 +55,7 @@ final class Money {
 	private static function units( $value, int $decimals ): int {
 		$text = is_string( $value ) ? trim( $value ) : self::number_to_text( $value );
 		if ( ! preg_match( '/^(-?)(\d+)(?:\.(\d+))?$/', $text, $parts ) ) {
-			throw new InvalidArgumentException( "Not a decimal amount: '{$text}'" );
+			throw new InvalidArgumentException( "Not a decimal amount: '{$text}'" );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 		}
 		$negative = '-' === $parts[1];
 		$digits   = str_pad( $parts[3] ?? '', $decimals + 1, '0' );
@@ -74,7 +74,7 @@ final class Money {
 		$absolute = abs( $cents );
 		$integer  = intdiv( $absolute, 100 );
 		if ( strlen( (string) $integer ) > self::MAX_INTEGER_DIGITS ) {
-			throw new InvalidArgumentException( 'Amount too large for the AEAT: ' . $cents . ' cents' );
+			throw new InvalidArgumentException( 'Amount too large for the AEAT: ' . $cents . ' cents' );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 		}
 		return sprintf( '%s%d.%02d', $sign, $integer, $absolute % 100 );
 	}

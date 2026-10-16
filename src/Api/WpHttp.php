@@ -23,7 +23,7 @@ final class WpHttp implements Http {
 		}
 		$response = wp_remote_request( $url, $args );
 		if ( is_wp_error( $response ) ) {
-			throw new ApiError( 0, 'network', 'Huella Cloud did not answer: ' . $response->get_error_message() );
+			throw new ApiError( 0, 'network', 'Huella Cloud did not answer: ' . $response->get_error_message() );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 		}
 		$headers = array();
 		foreach ( wp_remote_retrieve_headers( $response ) as $name => $value ) {

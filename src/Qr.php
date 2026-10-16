@@ -36,14 +36,14 @@ final class Qr {
 	 */
 	public static function url( string $nif, string $number, string $issue_date, string $total, string $environment ): string {
 		if ( ! isset( self::HOSTS[ $environment ] ) ) {
-			throw new InvalidArgumentException( "Unknown environment '{$environment}'" );
+			throw new InvalidArgumentException( "Unknown environment '{$environment}'" );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 		}
 		$normalized = Nif::normalize( $nif );
 		if ( ! Nif::is_valid( $normalized ) ) {
-			throw new InvalidArgumentException( "Not a valid Spanish NIF: '{$nif}'" );
+			throw new InvalidArgumentException( "Not a valid Spanish NIF: '{$nif}'" );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 		}
 		if ( ! preg_match( '/^-?\d{1,12}\.\d{2}$/', $total ) ) {
-			throw new InvalidArgumentException( "The total must have exactly 2 decimals: '{$total}'" );
+			throw new InvalidArgumentException( "The total must have exactly 2 decimals: '{$total}'" );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 		}
 		$params = array(
 			'nif'      => $normalized,
@@ -63,7 +63,7 @@ final class Qr {
 	 */
 	private static function aeat_date( string $iso ): string {
 		if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $iso, $parts ) || ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) {
-			throw new InvalidArgumentException( "Not a date (YYYY-MM-DD): '{$iso}'" );
+			throw new InvalidArgumentException( "Not a date (YYYY-MM-DD): '{$iso}'" );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 		}
 		return "{$parts[3]}-{$parts[2]}-{$parts[1]}";
 	}

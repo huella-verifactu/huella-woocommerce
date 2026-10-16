@@ -9,5 +9,9 @@ parameters:
         - autoload.php
         - src
         - tests
+    excludePaths:
+        - tests/stubs
     bootstrapFiles:
         - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
+        - tests/stubs/wpo-ips.php

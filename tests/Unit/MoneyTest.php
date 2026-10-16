@@ -42,6 +42,17 @@ final class MoneyTest extends TestCase {
 		self::assertSame( $expected, Money::text( $value ) );
 	}
 
+	public function test_micros(): void {
+		self::assertSame( 8256198, Money::to_micros( '8.256198' ) );
+		self::assertSame( 8256198, Money::to_micros( '8.2561984' ) );
+		self::assertSame( 8256199, Money::to_micros( '8.2561985' ) );
+		self::assertSame( -2500000, Money::to_micros( '-2.5' ) );
+		self::assertSame( 29, Money::micros_to_cents( 285000 ) );
+		self::assertSame( -29, Money::micros_to_cents( -285000 ) );
+		self::assertSame( 28, Money::micros_to_cents( 284999 ) );
+		self::assertSame( 0, Money::micros_to_cents( 4999 ) );
+	}
+
 	public function test_cents_add_exactly(): void {
 		$sum = Money::to_cents( '0.10' ) + Money::to_cents( '0.20' );
 		self::assertSame( '0.30', Money::format( $sum ) );

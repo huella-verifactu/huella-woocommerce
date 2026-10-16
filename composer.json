@@ -1,0 +1,32 @@
+{
+    "name": "huella-verifactu/huella-woocommerce",
+    "description": "Huella: Verifactu for WooCommerce. Registers WP Overnight invoices with the Spanish tax agency through Huella Cloud.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "homepage": "https://github.com/huella-verifactu/huella-woocommerce",
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "phpstan/phpstan": "^2.1",
+        "szepeviktor/phpstan-wordpress": "^2.0",
+        "php-stubs/woocommerce-stubs": "^10.0"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Huella\\Verifactu\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "7.4.33"
+        },
+        "sort-packages": true,
+        "allow-plugins": {}
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse --memory-limit=1G"
+    }
+}

@@ -12,6 +12,7 @@ parameters:
     excludePaths:
         - tests/stubs
         - tests/e2e # WP-CLI scripts: the e2e CI job runs and checks them
+        - tests/contract # WP-CLI script run by hand against a real cloud (README there)
     scanDirectories:
         - vendor-prefixed # chillerlan/php-qrcode under our namespace (Strauss); read, not analysed
     bootstrapFiles:

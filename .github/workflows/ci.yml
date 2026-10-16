@@ -7,7 +7,55 @@ on:
 permissions:
   contents: read
 
+env:
+  # The huella core release whose fixtures this plugin must match (Nif, Qr: SPEC 3.7, 6.7).
+  CORE_REF: v0.1.0
+
 jobs:
+  tests:
+    name: tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["7.4", "8.3"] # the supported range (SPEC 6.1)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress
+      - name: Syntax check on this PHP version
+        run: find src huella-verifactu.php autoload.php -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: vendor/bin/phpunit
+
+  static-analysis:
+    name: phpstan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+  shared-fixtures:
+    name: fixtures match huella core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compare with huella ${{ env.CORE_REF }}
+        run: |
+          for name in nif_cases.json qr_cases.json; do
+            curl -fsSL "https://raw.githubusercontent.com/huella-verifactu/huella/${CORE_REF}/tests/fixtures/${name}" -o "/tmp/${name}"
+            diff -u "/tmp/${name}" "tests/fixtures/${name}"
+          done
+
   secrets:
     name: gitleaks
     runs-on: ubuntu-latest

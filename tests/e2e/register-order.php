@@ -16,11 +16,13 @@ defined( 'ABSPATH' ) || exit;
 
 use Huella\Verifactu\Admin\Checks;
 use Huella\Verifactu\Admin\Connection;
+use Huella\Verifactu\Admin\OrderAdmin;
 use Huella\Verifactu\Admin\SettingsPage;
 use Huella\Verifactu\Checkout\NifField;
 use Huella\Verifactu\Woo\ActionSchedulerJobs;
 use Huella\Verifactu\Woo\Meta;
 use Huella\Verifactu\Woo\Options;
+use Huella\Verifactu\Woo\StatusSync;
 
 $check = static function ( bool $ok, string $what ): void {
 	if ( ! $ok ) {
@@ -206,5 +208,35 @@ $expected_url = Huella\Verifactu\Qr::url( 'B12345674', $qr_invoice->get_number()
 $check( false !== strpos( Huella\Verifactu\Integration\QrBlock::html( wc_get_order( $qr_order->get_id() ) ), 'mm;' ) && 0 === strpos( $expected_url, 'https://prewww2.aeat.es/' ), 'the QR encodes the pre-production URL of this invoice' );
 $pdf = (string) $qr_invoice->get_pdf();
 $check( 0 === strpos( $pdf, '%PDF' ) && strlen( $pdf ) > 5000, 'Dompdf renders the invoice with the QR into a PDF' );
+
+// --- 6. Status sync, retry button, orders list and meta box (SPEC 6.9, 6.10) -------------------
+$check( false !== as_has_scheduled_action( StatusSync::HOOK, array(), ActionSchedulerJobs::GROUP ), 'the 15-minute status sync is scheduled' );
+update_option( 'huella_fake_api_record_status', 'rejected' );
+$first_id = $order->get_id(); // Registered in scenario 1, still queued.
+StatusSync::run();
+$first = wc_get_order( $first_id );
+$check( 'rejected' === $first->get_meta( Meta::STATUS ), 'polling stores the AEAT rejection' );
+$notes = wc_get_order_notes( array( 'order_id' => $first_id ) );
+$check( (bool) array_filter( $notes, static function ( $note ) { return false !== strpos( $note->content, '1104' ); } ), 'the rejection note carries the AEAT code' );
+$check( 0 === StatusSync::run(), 'a second poll changes nothing' );
+
+OrderAdmin::register( new ActionSchedulerJobs() );
+$retry = wc_get_order( $second->get_id() ); // Left retrying by the 503 in scenario 2.
+OrderAdmin::requeue( $retry );
+$check( 'pending' === wc_get_order( $retry->get_id() )->get_meta( Meta::STATUS ), 'Reintentar envio puts the order back to pending' );
+foreach ( as_get_scheduled_actions( array( 'hook' => ActionSchedulerJobs::SEND, 'args' => array( $retry->get_id() ), 'status' => ActionScheduler_Store::STATUS_PENDING ), 'ids' ) as $action_id ) {
+	ActionScheduler_QueueRunner::instance()->process_action( (int) $action_id, 'huella-e2e' ); // Due now or later: run it.
+}
+$check( 0 === strpos( (string) wc_get_order( $retry->get_id() )->get_meta( Meta::RECORD_ID ), 'rec_' ), 'and the next run registers it' );
+
+$columns = OrderAdmin::columns( array( 'order_number' => 'Pedido', 'order_status' => 'Estado', 'order_total' => 'Total' ) );
+$check( array( 'order_number', 'order_status', OrderAdmin::COLUMN, 'order_total' ) === array_keys( $columns ), 'the Verifactu column sits after the order status' );
+ob_start();
+OrderAdmin::column_hpos( OrderAdmin::COLUMN, $first );
+$check( false !== strpos( (string) ob_get_clean(), 'Rechazado' ), 'the column shows Rechazado' );
+ob_start();
+OrderAdmin::meta_box( wc_get_order( $retry->get_id() ) );
+$box = (string) ob_get_clean();
+$check( false !== strpos( $box, 'Enviado' ) && false !== strpos( $box, 'Comprobar en la AEAT' ) && false === strpos( $box, 'Reintentar' ), 'the meta box shows the state and the AEAT link, no retry once registered' );
 
 WP_CLI::success( 'end-to-end checks passed' );

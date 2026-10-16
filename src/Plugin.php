@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Huella\Verifactu;
 
 use Huella\Verifactu\Admin\Notices;
+use Huella\Verifactu\Admin\OrderAdmin;
 use Huella\Verifactu\Admin\SettingsPage;
 use Huella\Verifactu\Checkout\NifField;
 use Huella\Verifactu\Integration\QrBlock;
@@ -18,6 +19,7 @@ use Huella\Verifactu\Sending\Sender;
 use Huella\Verifactu\Sending\Status;
 use Huella\Verifactu\Woo\ActionSchedulerJobs;
 use Huella\Verifactu\Woo\Options;
+use Huella\Verifactu\Woo\StatusSync;
 use Huella\Verifactu\Woo\WcHuellaOrder;
 use WC_Order;
 
@@ -63,11 +65,13 @@ final class Plugin {
 		);
 		( new Wcpdf( $jobs ) )->register();
 		QrBlock::register();
+		StatusSync::register();
 		if ( Options::adds_nif_field() ) {
 			NifField::register();
 		}
 		if ( is_admin() ) {
 			Notices::register();
+			OrderAdmin::register( $jobs );
 			add_filter(
 				'woocommerce_get_settings_pages',
 				static function ( $pages ) {

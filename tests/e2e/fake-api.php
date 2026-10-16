@@ -52,6 +52,18 @@ add_filter(
 				'key'     => array( 'prefix' => 'hk_test_eeee', 'environment' => 'test', 'issuer_ids' => null ),
 			);
 		}
+		if ( 'GET' === $method && 0 === strpos( $path, '/v1/invoices/rec_' ) ) {
+			$status = (string) get_option( 'huella_fake_api_record_status', 'accepted' );
+			$code   = 200;
+			$json   = array(
+				'id'     => substr( $path, strlen( '/v1/invoices/' ) ),
+				'object' => 'record',
+				'status' => $status,
+				'aeat'   => 'rejected' === $status
+					? array( 'status' => 'rejected', 'code' => '1104', 'message' => 'El valor del campo NumSerieFactura es incorrecto.' )
+					: array( 'status' => $status, 'code' => null, 'message' => null ),
+			);
+		}
 		if ( 'GET' === $method && '/v1/issuers' === $path ) {
 			$code = 200;
 			$json = array(

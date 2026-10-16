@@ -6,7 +6,9 @@
   "scripts": {
     "env:start": "wp-env start",
     "env:stop": "wp-env stop",
-    "e2e": "wp-env run cli wp eval-file wp-content/plugins/huella-verifactu/tests/e2e/register-order.php"
+    "e2e": "wp-env run cli wp eval-file wp-content/plugins/huella-verifactu/tests/e2e/register-order.php",
+    "build": "node bin/build-zip.mjs",
+    "plugin-check": "wp-env run cli wp plugin check wp-content/plugins/huella-verifactu/build/check/huella-verifactu --format=table"
   },
   "devDependencies": {
     "@wordpress/env": "11.16.0"

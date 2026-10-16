@@ -1,0 +1,14 @@
+{
+  "name": "huella-woocommerce",
+  "private": true,
+  "description": "Development tools only: a local WordPress for end-to-end tests (wp-env).",
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "env:start": "wp-env start",
+    "env:stop": "wp-env stop",
+    "e2e": "wp-env run cli wp eval-file wp-content/plugins/huella-verifactu/tests/e2e/register-order.php"
+  },
+  "devDependencies": {
+    "@wordpress/env": "11.16.0"
+  }
+}

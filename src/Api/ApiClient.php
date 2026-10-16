@@ -95,7 +95,7 @@ final class ApiClient {
 		if ( $response->status >= 200 && $response->status < 300 && is_array( $data ) ) {
 			return $data;
 		}
-		throw self::error( $response->status, is_array( $data ) ? $data : array() );
+		throw self::error( $response->status, is_array( $data ) ? $data : array() );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 	}
 
 	/**

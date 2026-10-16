@@ -52,7 +52,7 @@ final class PayloadMapper {
 		if ( 'F2' === $type && $total > Money::to_cents( $settings->simplified_limit ) ) {
 			throw new Unsupported(
 				'simplified_limit_exceeded',
-				"A simplified invoice may not exceed {$settings->simplified_limit}; this order needs a full invoice with the customer's NIF"
+				"A simplified invoice may not exceed {$settings->simplified_limit}; this order needs a full invoice with the customer's NIF"  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 			);
 		}
 
@@ -134,14 +134,14 @@ final class PayloadMapper {
 				continue; // Free shipping, a zero fee: nothing to declare.
 			}
 			if ( ! $taxes ) {
-				throw new Unsupported( 'untaxed_line', "'{$line->label}' has no tax: exempt or 0 % lines are not supported yet" );
+				throw new Unsupported( 'untaxed_line', "'{$line->label}' has no tax: exempt or 0 % lines are not supported yet" );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 			}
 			if ( count( $taxes ) > 1 ) {
-				throw new Unsupported( 'multiple_tax_rates', "'{$line->label}' has more than one tax rate" );
+				throw new Unsupported( 'multiple_tax_rates', "'{$line->label}' has more than one tax rate" );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 			}
 			list( $rate, $tax ) = $taxes[0];
 			if ( ! in_array( $rate, self::SUPPORTED_RATES, true ) ) {
-				throw new Unsupported( 'unsupported_rate', "'{$line->label}' uses a {$rate} % tax: only 21, 10 and 4 % IVA are supported" );
+				throw new Unsupported( 'unsupported_rate', "'{$line->label}' uses a {$rate} % tax: only 21, 10 and 4 % IVA are supported" );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 			}
 			if ( ! isset( $groups[ $rate ] ) ) {
 				$groups[ $rate ] = array( 0, 0 );
@@ -177,7 +177,7 @@ final class PayloadMapper {
 		if ( abs( $difference ) > self::ROUNDING_TOLERANCE ) {
 			throw new Unsupported(
 				'rounding_mismatch',
-				'The tax lines add up to ' . Money::format( $sum ) . ' but the order total is ' . Money::format( $total )
+				'The tax lines add up to ' . Money::format( $sum ) . ' but the order total is ' . Money::format( $total )  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 			);
 		}
 		$largest           = $this->largest_group( $cents );
@@ -223,7 +223,7 @@ final class PayloadMapper {
 		try {
 			return InvoiceNumber::check( $number );
 		} catch ( InvalidArgumentException $exception ) {
-			throw new Unsupported( 'invalid_invoice_number', "Invoice number '{$number}': " . $exception->getMessage() );
+			throw new Unsupported( 'invalid_invoice_number', "Invoice number '{$number}': " . $exception->getMessage() );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 		}
 	}
 

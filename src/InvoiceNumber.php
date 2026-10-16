@@ -34,7 +34,7 @@ final class InvoiceNumber {
 		}
 		foreach ( self::FORBIDDEN as $character ) {
 			if ( false !== strpos( $number, $character ) ) {
-				throw new InvalidArgumentException( "The AEAT rejects the character {$character} in invoice numbers" );
+				throw new InvalidArgumentException( "The AEAT rejects the character {$character} in invoice numbers" );  // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed: stored, then escaped or sanitised where shown.
 			}
 		}
 		return $number;

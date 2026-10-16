@@ -7,6 +7,9 @@
 
 declare(strict_types=1);
 
+// Plugin files refuse direct requests without WordPress's ABSPATH.
+define( 'ABSPATH', __DIR__ . '/' );
+
 // The pure classes translate their messages; without WordPress, text passes through unchanged.
 if ( ! function_exists( '__' ) ) {
 	function __( string $text, string $domain = 'default' ): string { // phpcs:ignore

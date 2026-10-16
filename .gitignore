@@ -19,3 +19,6 @@ secrets/
 *.sqlite
 *.sqlite3
 recordings/
+
+# Build tool (download: see README, Development)
+/bin/strauss.phar

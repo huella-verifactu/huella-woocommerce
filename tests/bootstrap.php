@@ -16,3 +16,4 @@ if ( ! function_exists( '__' ) ) {
 
 require dirname( __DIR__ ) . '/vendor/autoload.php';
 require dirname( __DIR__ ) . '/autoload.php';
+require dirname( __DIR__ ) . '/vendor-prefixed/autoload.php';

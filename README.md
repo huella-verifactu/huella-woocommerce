@@ -23,6 +23,25 @@ vendor/bin/phpunit                    # unit tests, no WordPress needed
 vendor/bin/phpstan analyse            # level 8, with WordPress and WooCommerce stubs
 ```
 
+End to end, in a real WordPress with WooCommerce and PDF Invoices (Docker + Node):
+
+```sh
+npm ci --ignore-scripts
+npx wp-env start                      # http://localhost:8888 (admin / password)
+npm run e2e
+```
+
+The QR library (`chillerlan/php-qrcode` 5.0.5, the last line that supports PHP 7.4) is copied
+into `vendor-prefixed/` under the `Huella\Verifactu\Vendor\` namespace with
+[Strauss](https://github.com/BrianHenryIE/strauss), so it never clashes with another plugin's
+copy. `vendor-prefixed/` is committed; after changing that dependency, regenerate it with
+Strauss 0.30.0 (it needs PHP 8, so on Windows run it in a container):
+
+```sh
+curl -fsSL -o bin/strauss.phar https://github.com/BrianHenryIE/strauss/releases/download/0.30.0/strauss.phar
+docker run --rm -v "$PWD:/app" -w /app php:8.3-cli php bin/strauss.phar
+```
+
 `tests/fixtures/nif_cases.json` and `qr_cases.json` are copies of the
 [huella core](https://github.com/huella-verifactu/huella) fixtures: the NIF checks and the QR
 URL must give exactly the same results in PHP and Python. CI compares them with the pinned core

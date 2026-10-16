@@ -12,6 +12,7 @@ namespace Huella\Verifactu;
 use Huella\Verifactu\Admin\Notices;
 use Huella\Verifactu\Admin\SettingsPage;
 use Huella\Verifactu\Checkout\NifField;
+use Huella\Verifactu\Integration\QrBlock;
 use Huella\Verifactu\Integration\Wcpdf;
 use Huella\Verifactu\Sending\Sender;
 use Huella\Verifactu\Sending\Status;
@@ -61,6 +62,7 @@ final class Plugin {
 			}
 		);
 		( new Wcpdf( $jobs ) )->register();
+		QrBlock::register();
 		if ( Options::adds_nif_field() ) {
 			NifField::register();
 		}

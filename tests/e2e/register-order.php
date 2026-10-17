@@ -23,6 +23,8 @@ use Huella\Verifactu\Woo\ActionSchedulerJobs;
 use Huella\Verifactu\Woo\Meta;
 use Huella\Verifactu\Woo\Options;
 use Huella\Verifactu\Woo\StatusSync;
+use Huella\Verifactu\Admin\Notices;
+use Huella\Verifactu\Woo\Refunds;
 use Huella\Verifactu\Woo\Webhooks;
 
 $check = static function ( bool $ok, string $what ): void {
@@ -293,5 +295,21 @@ $foreign['id'] = 'evt_' . str_repeat( 'f', 32 );
 $foreign['data']['id'] = 'rec_' . str_repeat( 'b', 32 );
 $foreign['data']['status'] = 'rejected';
 $check( 200 === $deliver( $foreign )->get_status() && 'accepted' === wc_get_order( $hooked->get_id() )->get_meta( Meta::STATUS ), 'an event for another record with the same order number changes nothing' );
+
+// --- 8. Refunds: a corrective invoice is needed (SPEC 6.8, v1.0) ---------------------------------
+Refunds::register();
+delete_option( Refunds::OPTION );
+$unsent = $new_order( $product ); // Never registered: nothing to rectify.
+wc_create_refund( array( 'order_id' => $unsent->get_id(), 'amount' => '10.00', 'reason' => 'e2e' ) );
+$check( array() === Refunds::pending(), 'a refund of an order without a registered invoice asks for nothing' );
+wc_create_refund( array( 'order_id' => $hooked->get_id(), 'amount' => '10.00', 'reason' => 'e2e' ) );
+$check( array( $hooked->get_id() ) === Refunds::pending(), 'a refund of a registered invoice is listed as needing a corrective invoice' );
+$refund_notes = wc_get_order_notes( array( 'order_id' => $hooked->get_id() ) );
+$check( (bool) array_filter( $refund_notes, static function ( $note ) { return false !== strpos( $note->content, 'factura rectificativa' ); } ), 'and the order says so in a note' );
+set_current_screen( 'dashboard' );
+ob_start();
+Notices::render();
+$notices = (string) ob_get_clean();
+$check( false !== strpos( $notices, 'necesitan una factura rectificativa' ) && false !== strpos( $notices, '#' . $hooked->get_order_number() ), 'the admin notice links the order' );
 
 WP_CLI::success( 'end-to-end checks passed' );

@@ -23,6 +23,7 @@ use Huella\Verifactu\Woo\ActionSchedulerJobs;
 use Huella\Verifactu\Woo\Meta;
 use Huella\Verifactu\Woo\Options;
 use Huella\Verifactu\Woo\StatusSync;
+use Huella\Verifactu\Woo\Webhooks;
 
 $check = static function ( bool $ok, string $what ): void {
 	if ( ! $ok ) {
@@ -238,5 +239,58 @@ ob_start();
 OrderAdmin::meta_box( wc_get_order( $retry->get_id() ) );
 $box = (string) ob_get_clean();
 $check( false !== strpos( $box, 'Enviado' ) && false !== strpos( $box, 'Comprobar en la AEAT' ) && false === strpos( $box, 'Reintentar' ), 'the meta box shows the state and the AEAT link, no retry once registered' );
+
+// --- 7. Webhooks from Huella (SPEC 6.9) --------------------------------------------------------
+$registrations = static function (): int {
+	$posts = array_filter( (array) get_option( 'huella_fake_api_requests', array() ), static function ( $r ) { return '/v1/webhook-endpoints' === $r['path']; } );
+	return count( $posts );
+};
+$registration = get_option( Webhooks::OPTION );
+$check( is_array( $registration ) && 0 === strpos( $registration['secret'], 'whsec_' ) && Webhooks::url() === $registration['url'], 'the connection check registered the webhook URL' );
+Connection::forget();
+$status = Connection::status();
+$check( true === $status['webhooks'] && 1 === $registrations(), 'a second check keeps the registration (no new secret)' );
+
+$hooked    = wc_get_order( $retry->get_id() ); // Registered above: queued.
+$record_id = (string) $hooked->get_meta( Meta::RECORD_ID );
+$issuer    = 'iss_' . str_repeat( '0', 32 );
+$event     = static function ( string $type, array $data ): array {
+	return array( 'id' => 'evt_' . md5( wp_generate_password( 20 ) ), 'type' => $type, 'created' => time(), 'data' => $data );
+};
+$deliver   = static function ( array $event, ?string $secret = null, ?int $t = null ) use ( $registration ): WP_REST_Response {
+	$body    = (string) wp_json_encode( $event );
+	$t       = $t ?? time();
+	$request = new WP_REST_Request( 'POST', '/huella/v1/events' );
+	$request->set_header( 'Content-Type', 'application/json' );
+	$request->set_header( 'Huella-Signature', "t={$t},v1=" . hash_hmac( 'sha256', "{$t}.{$body}", $secret ?? $registration['secret'] ) );
+	$request->set_body( $body );
+	return rest_do_request( $request );
+};
+$accepted  = $event(
+	'record.accepted',
+	array( 'id' => $record_id, 'object' => 'record', 'issuer_id' => $issuer, 'external_ref' => 'wc_order_' . $hooked->get_id(), 'status' => 'accepted', 'aeat' => array( 'status' => 'accepted', 'code' => null, 'message' => null ) )
+);
+$notes     = static function () use ( $hooked ): int {
+	return count( wc_get_order_notes( array( 'order_id' => $hooked->get_id() ) ) );
+};
+
+$check( in_array( $deliver( $accepted, 'whsec_wrong' )->get_status(), array( 401, 403 ), true ), 'a wrongly signed event is refused' );
+$check( in_array( $deliver( $accepted, null, time() - 600 )->get_status(), array( 401, 403 ), true ), 'an event signed 10 minutes ago is refused' );
+$check( 'queued' === wc_get_order( $hooked->get_id() )->get_meta( Meta::STATUS ), 'and neither changed the order' );
+
+$paused = $deliver( $event( 'issuer.paused', array( 'id' => $issuer, 'object' => 'issuer', 'paused' => true ) ) );
+$check( 200 === $paused->get_status() && null !== Webhooks::paused_since(), 'issuer.paused raises the paused notice' );
+
+$before = $notes();
+$check( 200 === $deliver( $accepted )->get_status(), 'a signed event is accepted' );
+$check( 'accepted' === wc_get_order( $hooked->get_id() )->get_meta( Meta::STATUS ) && $notes() === $before + 1, 'it stores the AEAT acceptance with one note' );
+$check( null === Webhooks::paused_since(), 'an accepted record clears the paused notice' );
+$check( 200 === $deliver( $accepted )->get_status() && $notes() === $before + 1, 'the same event delivered twice is applied once' );
+
+$foreign = $accepted;
+$foreign['id'] = 'evt_' . str_repeat( 'f', 32 );
+$foreign['data']['id'] = 'rec_from_another_shop';
+$foreign['data']['status'] = 'rejected';
+$check( 200 === $deliver( $foreign )->get_status() && 'accepted' === wc_get_order( $hooked->get_id() )->get_meta( Meta::STATUS ), 'an event for another record with the same order number changes nothing' );
 
 WP_CLI::success( 'end-to-end checks passed' );

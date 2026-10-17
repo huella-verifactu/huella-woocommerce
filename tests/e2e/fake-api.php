@@ -4,6 +4,7 @@
  * Description: Answers for Huella Cloud through pre_http_request when HUELLA_API_URL is the
  *              fake host. Records every request in the option huella_fake_api_requests. Put
  *              an HTTP status in the option huella_fake_api_fail_next to fail the next call.
+ *              Webhook registration answers a new random secret each time, like the cloud.
  *
  * @package Huella\Verifactu
  */
@@ -84,6 +85,18 @@ add_filter(
 				'status'       => 'queued',
 				'huella'       => strtoupper( hash( 'sha256', (string) wp_json_encode( $body ) ) ),
 				'qr_url'       => 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?fake=1',
+			);
+		}
+		if ( 'POST' === $method && '/v1/webhook-endpoints' === $path && is_array( $body ) ) {
+			$code = 201;
+			$json = array(
+				'id'          => 'whe_' . str_repeat( 'a', 32 ),
+				'object'      => 'webhook_endpoint',
+				'url'         => $body['url'],
+				'events'      => $body['events'],
+				'environment' => 'test',
+				'issuer_ids'  => null,
+				'secret'      => 'whsec_' . wp_generate_password( 43, false ),
 			);
 		}
 		return array(

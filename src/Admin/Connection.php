@@ -4,6 +4,7 @@
  * issuers, and the warnings that matter before the first order.
  *
  * Answers are cached for 5 minutes, so opening the settings page does not call the API each time.
+ * A fresh check also registers the shop's webhook URL with Huella when needed (SPEC 6.9).
  *
  * @package Huella\Verifactu
  */
@@ -14,6 +15,7 @@ namespace Huella\Verifactu\Admin;
 
 use Huella\Verifactu\Api\ApiError;
 use Huella\Verifactu\Woo\Options;
+use Huella\Verifactu\Woo\Webhooks;
 
 final class Connection {
 
@@ -23,7 +25,7 @@ final class Connection {
 	/**
 	 * The account and issuers as Huella answered, or the error.
 	 *
-	 * @return array{ok: bool, account?: string, environment?: string, issuers?: list<array{id: string, nif: string, legal_name: string, simplified_limit: string}>, error?: string}
+	 * @return array{ok: bool, account?: string, environment?: string, issuers?: list<array{id: string, nif: string, legal_name: string, simplified_limit: string}>, webhooks?: bool, error?: string}
 	 */
 	public static function status(): array {
 		$cached = get_transient( self::CACHE );
@@ -33,6 +35,7 @@ final class Connection {
 				'account'     => is_string( $cached['account'] ?? null ) ? $cached['account'] : '',
 				'environment' => 'live' === ( $cached['environment'] ?? '' ) ? 'live' : 'test',
 				'issuers'     => self::issuer_list( $cached['issuers'] ),
+				'webhooks'    => true === ( $cached['webhooks'] ?? null ),
 			);
 		}
 		$api = Options::api();
@@ -53,6 +56,7 @@ final class Connection {
 				'account'     => $account,
 				'environment' => $api->environment(),
 				'issuers'     => $issuers,
+				'webhooks'    => Webhooks::ensure( $api ),
 			);
 		} catch ( ApiError $error ) {
 			$status = array(
@@ -122,6 +126,14 @@ final class Connection {
 						$status['account'] ?? '',
 						count( $status['issuers'] ?? array() )
 					)
+				)
+			);
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					( $status['webhooks'] ?? false )
+						? __( 'Avisos instantáneos activos: el estado de cada factura llega en cuanto la AEAT responde.', 'huella-verifactu' )
+						: __( 'Avisos instantáneos no disponibles (Huella no puede llegar a este sitio): el estado de las facturas se consulta cada 15 minutos.', 'huella-verifactu' )
 				)
 			);
 		} else {

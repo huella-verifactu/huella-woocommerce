@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin notices (SPEC 6.10): missing configuration, invoices disabled, test mode. Shown only to
+ * Admin notices (SPEC 6.10): missing configuration, invoices disabled, sending paused, test mode. Shown only to
  * people who manage WooCommerce, and only on the dashboard, plugins and WooCommerce screens.
  *
  * @package Huella\Verifactu
@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace Huella\Verifactu\Admin;
 
 use Huella\Verifactu\Woo\Options;
+use Huella\Verifactu\Woo\Webhooks;
 
 final class Notices {
 
@@ -39,6 +40,14 @@ final class Notices {
 				admin_url( 'admin.php?page=wpo_wcpdf_options_page&tab=documents' )
 			);
 		}
+		if ( null !== Webhooks::paused_since() ) {
+			self::notice(
+				'error',
+				__( 'La AEAT ha rechazado el certificado del emisor y Huella ha pausado el envío de facturas. Sube un certificado válido en el panel de Huella: las facturas pendientes se enviarán solas.', 'huella-verifactu' ),
+				rtrim( Options::api_url(), '/' ) . '/dashboard/issuers',
+				__( 'Abrir el panel de Huella', 'huella-verifactu' )
+			);
+		}
 		if ( 'test' === $api->environment() ) {
 			self::notice(
 				'warning',
@@ -58,13 +67,13 @@ final class Notices {
 			|| false !== strpos( $screen->id, 'wc-orders' );
 	}
 
-	private static function notice( string $type, string $message, string $link ): void {
+	private static function notice( string $type, string $message, string $link, string $label = '' ): void {
 		printf(
 			'<div class="notice notice-%1$s"><p>%2$s <a href="%3$s">%4$s</a></p></div>',
 			esc_attr( $type ),
 			esc_html( $message ),
 			esc_url( $link ),
-			esc_html__( 'Abrir ajustes', 'huella-verifactu' )
+			esc_html( '' === $label ? __( 'Abrir ajustes', 'huella-verifactu' ) : $label )
 		);
 	}
 }

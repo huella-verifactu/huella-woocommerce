@@ -75,6 +75,24 @@ final class ApiClient {
 	}
 
 	/**
+	 * Register this shop's webhook URL (SPEC 5.8). Registering the same URL again answers the
+	 * same endpoint with a new secret, which is only in this answer.
+	 *
+	 * @param list<string> $events Event types to receive.
+	 * @return array<string, mixed> The endpoint, with its "secret".
+	 */
+	public function register_webhook( string $url, array $events ): array {
+		return $this->call(
+			'POST',
+			'/v1/webhook-endpoints',
+			array(
+				'url'    => $url,
+				'events' => $events,
+			)
+		);
+	}
+
+	/**
 	 * @param array<string, mixed>|null $payload JSON body.
 	 * @return array<string, mixed> Decoded JSON answer.
 	 * @throws ApiError On any answer other than 2xx with a JSON object.

@@ -43,6 +43,30 @@ final class ApiClientTest extends TestCase {
 		self::assertSame( ApiClient::TIMEOUT, $request['timeout'] );
 	}
 
+	public function test_register_webhook_posts_the_url_and_events(): void {
+		$http   = ( new FakeHttp() )->answer(
+			201,
+			array(
+				'id'     => 'whe_1',
+				'secret' => 'whsec_1',
+			)
+		);
+		$client = new ApiClient( $http, self::TEST_KEY, 'https://api.example.test' );
+
+		$endpoint = $client->register_webhook( 'https://tienda.example/wp-json/huella/v1/events', array( 'record.accepted' ) );
+
+		self::assertSame( 'whsec_1', $endpoint['secret'] );
+		$request = $http->requests[0];
+		self::assertSame( 'https://api.example.test/v1/webhook-endpoints', $request['url'] );
+		self::assertSame(
+			array(
+				'url'    => 'https://tienda.example/wp-json/huella/v1/events',
+				'events' => array( 'record.accepted' ),
+			),
+			json_decode( (string) $request['body'], true )
+		);
+	}
+
 	public function test_the_key_decides_the_environment(): void {
 		self::assertSame( 'test', ( new ApiClient( new FakeHttp(), self::TEST_KEY, 'https://x' ) )->environment() );
 		self::assertSame( 'live', ( new ApiClient( new FakeHttp(), self::LIVE_KEY, 'https://x' ) )->environment() );

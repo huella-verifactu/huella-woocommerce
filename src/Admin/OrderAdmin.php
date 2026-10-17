@@ -13,6 +13,7 @@ namespace Huella\Verifactu\Admin;
 use Huella\Verifactu\Sending\Scheduler;
 use Huella\Verifactu\Sending\Status;
 use Huella\Verifactu\Woo\Meta;
+use Huella\Verifactu\Woo\Options;
 use WC_Order;
 use WP_Post;
 
@@ -101,6 +102,11 @@ final class OrderAdmin {
 		$qr_url = (string) $order->get_meta( Meta::QR_URL );
 		if ( '' !== $qr_url ) {
 			printf( '<p><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></p>', esc_url( $qr_url ), esc_html__( 'Comprobar en la AEAT', 'huella-verifactu' ) );
+		}
+		$record_id = (string) $order->get_meta( Meta::RECORD_ID );
+		if ( preg_match( '/^rec_[0-9a-f]{32}$/', $record_id ) ) {
+			$link = rtrim( Options::api_url(), '/' ) . '/dashboard/records/' . $record_id . '?environment=' . ( 'live' === $environment ? 'live' : 'test' );
+			printf( '<p><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></p>', esc_url( $link ), esc_html__( 'Ver en Huella', 'huella-verifactu' ) );
 		}
 		$error = (string) $order->get_meta( Meta::LAST_ERROR );
 		if ( '' !== $error && '' === (string) $order->get_meta( Meta::RECORD_ID ) ) {

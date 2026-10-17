@@ -241,6 +241,7 @@ ob_start();
 OrderAdmin::meta_box( wc_get_order( $retry->get_id() ) );
 $box = (string) ob_get_clean();
 $check( false !== strpos( $box, 'Enviado' ) && false !== strpos( $box, 'Comprobar en la AEAT' ) && false === strpos( $box, 'Reintentar' ), 'the meta box shows the state and the AEAT link, no retry once registered' );
+$check( false !== strpos( $box, 'Ver en Huella' ) && false !== strpos( $box, '/dashboard/records/rec_' ), 'the meta box links the record in the Huella dashboard' );
 
 // --- 7. Webhooks from Huella (SPEC 6.9) --------------------------------------------------------
 $registrations = static function (): int {

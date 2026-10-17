@@ -3,6 +3,7 @@
 # Development files stay out of release archives (git archive / the WordPress.org build).
 /.github export-ignore
 /tests export-ignore
+/docs export-ignore
 /.gitattributes export-ignore
 /.gitignore export-ignore
 /.pre-commit-config.yaml export-ignore

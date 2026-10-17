@@ -1,0 +1,68 @@
+name: Release
+
+# Tag vX.Y.Z (matching "Version:" in huella-verifactu.php and "Stable tag:" in readme.txt) to
+# build the plugin ZIP and attach it to a GitHub Release. The Huella dashboard links to
+# releases/latest/download/huella-verifactu.zip (cloud PLUGIN_DOWNLOAD_URL), so the newest
+# release is what shops install until the plugin is on WordPress.org (SPEC 11.7).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tag must match the plugin version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          grep -Eq "^ \* Version: +${version}$" huella-verifactu.php || { echo "huella-verifactu.php Version is not ${version}"; exit 1; }
+          grep -Eq "^Stable tag: ${version}$" readme.txt || { echo "readme.txt Stable tag is not ${version}"; exit 1; }
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/phpunit
+      # The same archive as `npm run build`: exactly what is in git, minus export-ignore files.
+      - run: mkdir -p build && git archive --format=zip --prefix=huella-verifactu/ -o build/huella-verifactu.zip HEAD
+      - name: The ZIP has the plugin and no development files
+        run: |
+          unzip -l build/huella-verifactu.zip > files.txt
+          grep -q "huella-verifactu/huella-verifactu.php" files.txt
+          grep -q "huella-verifactu/vendor-prefixed/" files.txt
+          ! grep -Eq "huella-verifactu/(tests|node_modules|\.github)/" files.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zip
+          path: build/huella-verifactu.zip
+
+  github-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: zip
+          path: build/
+      - name: Release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found && /^\[.*\]: / { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "No CHANGELOG.md section for ${version}"; exit 1; }
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" build/huella-verifactu.zip --title "${GITHUB_REF_NAME}" --notes-file notes.md

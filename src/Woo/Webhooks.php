@@ -30,6 +30,9 @@ final class Webhooks {
 	public const OPTION    = 'huella_verifactu_webhook';      // Registration (with the secret).
 	public const SEEN      = 'huella_verifactu_seen_events';  // Last 500 event IDs.
 	public const PAUSED    = 'huella_verifactu_issuer_paused'; // Unix time of issuer.paused.
+	private const LOCK     = 'huella_verifactu_webhook_lock';  // One registration at a time.
+	private const LOCK_TTL = 60;   // Seconds; a crashed request frees it after this.
+	private const MAX_BODY = 65536; // Bytes. An event is a few KB; refuse anything far larger unread.
 	private const NS       = 'huella/v1';
 	private const ROUTE    = '/events';
 
@@ -64,7 +67,11 @@ final class Webhooks {
 			return false;
 		}
 		$header = (string) $request->get_header( 'huella_signature' );
-		return Signature::verify( $header, $request->get_body(), $registration['secret'], time() );
+		$body   = $request->get_body();
+		if ( '' === $header || strlen( $header ) > 512 || strlen( $body ) > self::MAX_BODY ) {
+			return false; // Cheap refusals first: no HMAC over junk.
+		}
+		return Signature::verify( $header, $body, $registration['secret'], time() );
 	}
 
 	/**
@@ -77,8 +84,13 @@ final class Webhooks {
 		}
 		$seen = SeenEvents::add( get_option( self::SEEN, array() ), $event->id );
 		if ( null !== $seen ) {
-			update_option( self::SEEN, $seen, false );
 			self::apply( $event );
+			// Marked seen only once applied: if applying fails, Huella's retry still counts.
+			// Re-read so a concurrent event's ID is not overwritten.
+			$latest = SeenEvents::add( get_option( self::SEEN, array() ), $event->id );
+			if ( null !== $latest ) {
+				update_option( self::SEEN, $latest, false );
+			}
 		}
 		// 200 even for events about other shops or unknown orders: a retry would not help.
 		return new WP_REST_Response( array( 'received' => true ), 200 );
@@ -92,9 +104,11 @@ final class Webhooks {
 			}
 			return;
 		}
-		$order_id = $event->order_id();
-		$order    = null === $order_id ? null : wc_get_order( $order_id );
-		if ( ! $order instanceof WC_Order || $event->object_id() !== (string) $order->get_meta( Meta::RECORD_ID ) ) {
+		$order_id  = $event->order_id();
+		$record_id = $event->object_id();
+		$order     = null === $order_id || '' === $record_id ? null : wc_get_order( $order_id );
+		// The order must hold this very record: another shop may use the same order numbers.
+		if ( ! $order instanceof WC_Order || $record_id !== (string) $order->get_meta( Meta::RECORD_ID ) ) {
 			return;
 		}
 		StatusSync::apply( $order, $event->data );
@@ -113,6 +127,23 @@ final class Webhooks {
 		if ( Registration::is_current( get_option( self::OPTION ), $url, $key ) ) {
 			return true;
 		}
+		// Registering again replaces the secret, so two at once (two admin tabs) could leave us
+		// holding the older one. add_option is atomic: only one request gets the lock.
+		$locked_at = get_option( self::LOCK );
+		if ( is_numeric( $locked_at ) && time() - (int) $locked_at > self::LOCK_TTL ) {
+			delete_option( self::LOCK );
+		}
+		if ( ! add_option( self::LOCK, time(), '', false ) ) {
+			return false; // Another request is registering; the next check will see its result.
+		}
+		try {
+			return self::register_now( $api, $url, $key );
+		} finally {
+			delete_option( self::LOCK );
+		}
+	}
+
+	private static function register_now( ApiClient $api, string $url, string $key ): bool {
 		try {
 			$registration = Registration::from_answer( $api->register_webhook( $url, Event::SUBSCRIBED ), $url, $key );
 		} catch ( ApiError $error ) {

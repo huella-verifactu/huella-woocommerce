@@ -247,9 +247,10 @@ $registrations = static function (): int {
 };
 $registration = get_option( Webhooks::OPTION );
 $check( is_array( $registration ) && 0 === strpos( $registration['secret'], 'whsec_' ) && Webhooks::url() === $registration['url'], 'the connection check registered the webhook URL' );
+$before = $registrations();
 Connection::forget();
 $status = Connection::status();
-$check( true === $status['webhooks'] && 1 === $registrations(), 'a second check keeps the registration (no new secret)' );
+$check( true === $status['webhooks'] && $before === $registrations(), 'a second check keeps the registration (no new secret)' );
 
 $hooked    = wc_get_order( $retry->get_id() ); // Registered above: queued.
 $record_id = (string) $hooked->get_meta( Meta::RECORD_ID );
@@ -289,7 +290,7 @@ $check( 200 === $deliver( $accepted )->get_status() && $notes() === $before + 1,
 
 $foreign = $accepted;
 $foreign['id'] = 'evt_' . str_repeat( 'f', 32 );
-$foreign['data']['id'] = 'rec_from_another_shop';
+$foreign['data']['id'] = 'rec_' . str_repeat( 'b', 32 );
 $foreign['data']['status'] = 'rejected';
 $check( 200 === $deliver( $foreign )->get_status() && 'accepted' === wc_get_order( $hooked->get_id() )->get_meta( Meta::STATUS ), 'an event for another record with the same order number changes nothing' );
 

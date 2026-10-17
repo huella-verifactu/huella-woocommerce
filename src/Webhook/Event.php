@@ -69,10 +69,12 @@ final class Event {
 	}
 
 	/**
-	 * The object's own ID (rec_… for a record, iss_… for an issuer), "" when missing.
+	 * The object's own ID (rec_… for a record, iss_… for an issuer), "" when missing or not
+	 * shaped like one.
 	 */
 	public function object_id(): string {
-		return is_string( $this->data['id'] ?? null ) ? $this->data['id'] : '';
+		$id = $this->data['id'] ?? null;
+		return is_string( $id ) && preg_match( '/^(rec|iss)_[0-9a-f]{32}$/', $id ) ? $id : '';
 	}
 
 	/**

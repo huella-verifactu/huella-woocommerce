@@ -18,6 +18,7 @@ final class EventTest extends TestCase {
 
 	private const EVENT_ID = 'evt_0123456789abcdef0123456789abcdef';
 	private const ISSUER   = 'iss_0123456789abcdef0123456789abcdef';
+	private const RECORD   = 'rec_0123456789abcdef0123456789abcdef';
 
 	/**
 	 * @param array<string, mixed> $data
@@ -38,7 +39,7 @@ final class EventTest extends TestCase {
 			self::body(
 				'record.accepted',
 				array(
-					'id'           => 'rec_1',
+					'id'           => self::RECORD,
 					'issuer_id'    => self::ISSUER,
 					'external_ref' => 'wc_order_1234',
 					'status'       => 'accepted',
@@ -49,7 +50,7 @@ final class EventTest extends TestCase {
 		self::assertSame( self::EVENT_ID, $event->id );
 		self::assertTrue( $event->is_record() );
 		self::assertSame( 1234, $event->order_id() );
-		self::assertSame( 'rec_1', $event->object_id() );
+		self::assertSame( self::RECORD, $event->object_id() );
 		self::assertSame( self::ISSUER, $event->issuer_id() );
 	}
 
@@ -102,6 +103,14 @@ final class EventTest extends TestCase {
 			'no data'    => array( '{"id":"' . self::EVENT_ID . '","type":"record.accepted"}' ),
 			'type array' => array( '{"id":"' . self::EVENT_ID . '","type":[],"data":{}}' ),
 		);
+	}
+
+	public function test_ids_not_shaped_like_ours_are_ignored(): void {
+		foreach ( array( '', 'rec_1', 'REC_0123456789abcdef0123456789abcdef', 'whe_0123456789abcdef0123456789abcdef' ) as $id ) {
+			$event = Event::parse( self::body( 'record.accepted', array( 'id' => $id ) ) );
+			self::assertNotNull( $event );
+			self::assertSame( '', $event->object_id(), $id );
+		}
 	}
 
 	public function test_seen_events_are_applied_once_and_kept_to_500(): void {

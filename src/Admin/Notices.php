@@ -1,6 +1,7 @@
 <?php
 /**
- * Admin notices (SPEC 6.10): missing configuration, invoices disabled, sending paused, test mode. Shown only to
+ * Admin notices (SPEC 6.10): missing configuration, invoices disabled, sending paused, refunds to
+ * rectify, test mode. Shown only to
  * people who manage WooCommerce, and only on the dashboard, plugins and WooCommerce screens.
  *
  * @package Huella\Verifactu
@@ -11,6 +12,7 @@ declare(strict_types=1);
 namespace Huella\Verifactu\Admin;
 
 use Huella\Verifactu\Woo\Options;
+use Huella\Verifactu\Woo\Refunds;
 use Huella\Verifactu\Woo\Webhooks;
 
 final class Notices {
@@ -48,6 +50,7 @@ final class Notices {
 				__( 'Abrir el panel de Huella', 'huella-verifactu' )
 			);
 		}
+		self::refunds();
 		if ( 'test' === $api->environment() ) {
 			self::notice(
 				'warning',
@@ -55,6 +58,35 @@ final class Notices {
 				$settings
 			);
 		}
+	}
+
+	/**
+	 * Refunded orders still waiting for a corrective invoice (SPEC 6.8), with links and a
+	 * "resolved" button.
+	 */
+	private static function refunds(): void {
+		$pending = Refunds::pending();
+		if ( ! $pending ) {
+			return;
+		}
+		$links = array();
+		foreach ( $pending as $order_id ) {
+			$order = wc_get_order( $order_id );
+			if ( $order instanceof \WC_Order ) {
+				$links[] = sprintf( '<a href="%s">#%s</a>', esc_url( $order->get_edit_order_url() ), esc_html( $order->get_order_number() ) );
+			}
+		}
+		if ( ! $links ) {
+			return;
+		}
+		$resolve = wp_nonce_url( admin_url( 'admin-post.php?action=' . Refunds::RESOLVE ), Refunds::RESOLVE );
+		printf(
+			'<div class="notice notice-warning"><p>%1$s %2$s</p><p><a class="button" href="%3$s">%4$s</a></p></div>',
+			esc_html__( 'Verifactu: estos pedidos tienen reembolsos que necesitan una factura rectificativa (Huella todavía no la emite):', 'huella-verifactu' ),
+			implode( ', ', $links ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- each link escaped above
+			esc_url( $resolve ),
+			esc_html__( 'Ya están hechas: marcar como resueltos', 'huella-verifactu' )
+		);
 	}
 
 	private static function relevant_screen(): bool {

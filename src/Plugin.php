@@ -19,6 +19,7 @@ use Huella\Verifactu\Sending\Sender;
 use Huella\Verifactu\Sending\Status;
 use Huella\Verifactu\Woo\ActionSchedulerJobs;
 use Huella\Verifactu\Woo\Options;
+use Huella\Verifactu\Woo\Refunds;
 use Huella\Verifactu\Woo\StatusSync;
 use Huella\Verifactu\Woo\Webhooks;
 use Huella\Verifactu\Woo\WcHuellaOrder;
@@ -68,6 +69,7 @@ final class Plugin {
 		QrBlock::register();
 		StatusSync::register();
 		Webhooks::register();
+		Refunds::register();
 		if ( Options::adds_nif_field() ) {
 			NifField::register();
 		}
